@@ -16,6 +16,7 @@ import com._1c.g5.v8.dt.validation.marker.Marker;
 import com._1c.g5.v8.dt.validation.marker.MarkerSeverity;
 
 import com.ditrix.edt.mcp.server.Activator;
+import com.ditrix.edt.mcp.server.protocol.JsonSchemaBuilder;
 import com.ditrix.edt.mcp.server.protocol.JsonUtils;
 import com.ditrix.edt.mcp.server.tools.IMcpTool;
 
@@ -43,9 +44,9 @@ public class GetProblemSummaryTool implements IMcpTool
     @Override
     public String getInputSchema()
     {
-        return "{\"type\": \"object\", \"properties\": {" + //$NON-NLS-1$
-               "\"projectName\": {\"type\": \"string\", \"description\": \"Name of the project (optional, all projects if not specified)\"}" + //$NON-NLS-1$
-               "}, \"required\": []}"; //$NON-NLS-1$
+        return JsonSchemaBuilder.object()
+            .stringProperty("projectName", "Name of the project (optional, all projects if not specified)") //$NON-NLS-1$ //$NON-NLS-2$
+            .build();
     }
     
     @Override

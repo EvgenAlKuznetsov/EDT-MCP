@@ -14,6 +14,7 @@ import org.eclipse.jface.preference.IPreferenceStore;
 
 import com.ditrix.edt.mcp.server.Activator;
 import com.ditrix.edt.mcp.server.preferences.PreferenceConstants;
+import com.ditrix.edt.mcp.server.protocol.JsonSchemaBuilder;
 import com.ditrix.edt.mcp.server.protocol.JsonUtils;
 import com.ditrix.edt.mcp.server.tools.IMcpTool;
 
@@ -41,9 +42,9 @@ public class GetCheckDescriptionTool implements IMcpTool
     @Override
     public String getInputSchema()
     {
-        return "{\"type\": \"object\", \"properties\": {" + //$NON-NLS-1$
-               "\"checkId\": {\"type\": \"string\", \"description\": \"Check ID (e.g. 'begin-transaction', 'ql-temp-table-index')\"}" + //$NON-NLS-1$
-               "}, \"required\": [\"checkId\"]}"; //$NON-NLS-1$
+        return JsonSchemaBuilder.object()
+            .stringProperty("checkId", "Check ID (e.g. 'begin-transaction', 'ql-temp-table-index')", true) //$NON-NLS-1$ //$NON-NLS-2$
+            .build();
     }
     
     @Override

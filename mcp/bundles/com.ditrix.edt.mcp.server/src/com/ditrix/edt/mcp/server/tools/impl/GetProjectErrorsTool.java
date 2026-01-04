@@ -3,22 +3,23 @@
  */
 package com.ditrix.edt.mcp.server.tools.impl;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 
 import com._1c.g5.v8.dt.validation.marker.IMarkerManager;
-import com._1c.g5.v8.dt.validation.marker.Marker;
 import com._1c.g5.v8.dt.validation.marker.MarkerSeverity;
 
 import com.ditrix.edt.mcp.server.Activator;
+import com.ditrix.edt.mcp.server.protocol.JsonSchemaBuilder;
 import com.ditrix.edt.mcp.server.protocol.JsonUtils;
+import com.ditrix.edt.mcp.server.protocol.ToolResult;
 import com.ditrix.edt.mcp.server.tools.IMcpTool;
+import com.ditrix.edt.mcp.server.utils.ProjectStateChecker;
 
 /**
  * Tool to get detailed project errors with optional filters.
@@ -27,9 +28,6 @@ import com.ditrix.edt.mcp.server.tools.IMcpTool;
 public class GetProjectErrorsTool implements IMcpTool
 {
     public static final String NAME = "get_project_errors"; //$NON-NLS-1$
-    
-    private static final int DEFAULT_LIMIT = 100;
-    private static final int MAX_LIMIT = 1000;
     
     @Override
     public String getName()
@@ -47,12 +45,12 @@ public class GetProjectErrorsTool implements IMcpTool
     @Override
     public String getInputSchema()
     {
-        return "{\"type\": \"object\", \"properties\": {" + //$NON-NLS-1$
-               "\"projectName\": {\"type\": \"string\", \"description\": \"Filter by project name (optional)\"}," + //$NON-NLS-1$
-               "\"severity\": {\"type\": \"string\", \"description\": \"Filter by severity: ERRORS, BLOCKER, CRITICAL, MAJOR, MINOR, TRIVIAL (optional)\"}," + //$NON-NLS-1$
-               "\"checkId\": {\"type\": \"string\", \"description\": \"Filter by check ID substring (e.g. 'ql-temp-table-index') (optional)\"}," + //$NON-NLS-1$
-               "\"limit\": {\"type\": \"integer\", \"description\": \"Maximum number of results (default: 100, max: 1000)\"}" + //$NON-NLS-1$
-               "}, \"required\": []}"; //$NON-NLS-1$
+        return JsonSchemaBuilder.object()
+            .stringProperty("projectName", "Filter by project name (optional)") //$NON-NLS-1$ //$NON-NLS-2$
+            .stringProperty("severity", "Filter by severity: ERRORS, BLOCKER, CRITICAL, MAJOR, MINOR, TRIVIAL (optional)") //$NON-NLS-1$ //$NON-NLS-2$
+            .stringProperty("checkId", "Filter by check ID substring (e.g. 'ql-temp-table-index') (optional)") //$NON-NLS-1$ //$NON-NLS-2$
+            .integerProperty("limit", "Maximum number of results (default: 100, max: 1000)") //$NON-NLS-1$ //$NON-NLS-2$
+            .build();
     }
     
     @Override
@@ -63,12 +61,25 @@ public class GetProjectErrorsTool implements IMcpTool
         String checkId = JsonUtils.extractStringArgument(params, "checkId"); //$NON-NLS-1$
         String limitStr = JsonUtils.extractStringArgument(params, "limit"); //$NON-NLS-1$
         
-        int limit = DEFAULT_LIMIT;
+        // Check if project is ready for operations
+        if (projectName != null && !projectName.isEmpty())
+        {
+            String notReadyError = ProjectStateChecker.checkReadyOrError(projectName);
+            if (notReadyError != null)
+            {
+                return ToolResult.error(notReadyError).toJson();
+            }
+        }
+        
+        int defaultLimit = Activator.getDefault().getDefaultLimit();
+        int maxLimit = Activator.getDefault().getMaxLimit();
+        
+        int limit = defaultLimit;
         if (limitStr != null && !limitStr.isEmpty())
         {
             try
             {
-                limit = Math.min(Integer.parseInt(limitStr), MAX_LIMIT);
+                limit = Math.min(Integer.parseInt(limitStr), maxLimit);
             }
             catch (NumberFormatException e)
             {
@@ -100,7 +111,6 @@ public class GetProjectErrorsTool implements IMcpTool
             }
             
             IWorkspace workspace = ResourcesPlugin.getWorkspace();
-            List<ErrorInfo> errors = new ArrayList<>();
             
             // Parse severity filter
             MarkerSeverity severityFilter = null;
@@ -126,61 +136,60 @@ public class GetProjectErrorsTool implements IMcpTool
                 }
             }
             
-            // Collect errors from EDT MarkerManager
+            // Collect errors from EDT MarkerManager using proper stream operations
             final MarkerSeverity finalSeverityFilter = severityFilter;
             final String finalCheckId = checkId;
+            final String finalProjectName = projectName;
             
-            // Get all markers via stream and filter
-            Stream<Marker> markerStream = markerManager.markers();
-            
-            markerStream.forEach(marker -> {
-                if (errors.size() >= limit)
-                {
-                    return;
-                }
-                
-                // Get project
-                IProject markerProject = marker.getProject();
-                if (markerProject == null)
-                {
-                    return;
-                }
-                
-                // Check project filter
-                if (projectName != null && !projectName.isEmpty() && 
-                    !markerProject.getName().equals(projectName))
-                {
-                    return;
-                }
-                
-                // Check severity filter
-                MarkerSeverity markerSeverity = marker.getSeverity();
-                if (finalSeverityFilter != null && markerSeverity != finalSeverityFilter)
-                {
-                    return;
-                }
-                
-                // Check checkId filter
-                String markerCheckId = marker.getCheckId();
-                if (finalCheckId != null && !finalCheckId.isEmpty())
-                {
-                    if (markerCheckId == null || 
-                        !markerCheckId.toLowerCase().contains(finalCheckId.toLowerCase()))
+            // Use filter + limit instead of forEach with early return (which doesn't work)
+            List<ErrorInfo> errors = markerManager.markers()
+                .filter(marker -> {
+                    // Get project
+                    IProject markerProject = marker.getProject();
+                    if (markerProject == null)
                     {
-                        return;
+                        return false;
                     }
-                }
-                
-                // Create error info
-                ErrorInfo error = new ErrorInfo();
-                error.checkId = markerCheckId != null ? markerCheckId : ""; //$NON-NLS-1$
-                error.message = marker.getMessage() != null ? marker.getMessage() : ""; //$NON-NLS-1$
-                error.severity = markerSeverity != null ? markerSeverity.name() : "NONE"; //$NON-NLS-1$
-                error.objectPresentation = marker.getObjectPresentation() != null ? 
-                    marker.getObjectPresentation() : ""; //$NON-NLS-1$
-                
-                errors.add(error);
-            });
+                    
+                    // Check project filter
+                    if (finalProjectName != null && !finalProjectName.isEmpty() && 
+                        !markerProject.getName().equals(finalProjectName))
+                    {
+                        return false;
+                    }
+                    
+                    // Check severity filter
+                    MarkerSeverity markerSeverity = marker.getSeverity();
+                    if (finalSeverityFilter != null && markerSeverity != finalSeverityFilter)
+                    {
+                        return false;
+                    }
+                    
+                    // Check checkId filter
+                    String markerCheckId = marker.getCheckId();
+                    if (finalCheckId != null && !finalCheckId.isEmpty())
+                    {
+                        if (markerCheckId == null || 
+                            !markerCheckId.toLowerCase().contains(finalCheckId.toLowerCase()))
+                        {
+                            return false;
+                        }
+                    }
+                    
+                    return true;
+                })
+                .limit(limit)
+                .map(marker -> {
+                    ErrorInfo error = new ErrorInfo();
+                    error.checkId = marker.getCheckId() != null ? marker.getCheckId() : ""; //$NON-NLS-1$
+                    error.message = marker.getMessage() != null ? marker.getMessage() : ""; //$NON-NLS-1$
+                    MarkerSeverity sev = marker.getSeverity();
+                    error.severity = sev != null ? sev.name() : "NONE"; //$NON-NLS-1$
+                    error.objectPresentation = marker.getObjectPresentation() != null ? 
+                        marker.getObjectPresentation() : ""; //$NON-NLS-1$
+                    return error;
+                })
+                .collect(Collectors.toList());
             
             // Build Markdown response for better readability and context efficiency
             StringBuilder md = new StringBuilder();

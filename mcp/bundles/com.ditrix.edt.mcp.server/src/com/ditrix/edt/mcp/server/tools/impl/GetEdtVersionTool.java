@@ -9,6 +9,7 @@ import org.eclipse.core.runtime.Platform;
 import org.osgi.framework.Bundle;
 
 import com.ditrix.edt.mcp.server.Activator;
+import com.ditrix.edt.mcp.server.protocol.JsonSchemaBuilder;
 import com.ditrix.edt.mcp.server.tools.IMcpTool;
 
 /**
@@ -33,7 +34,7 @@ public class GetEdtVersionTool implements IMcpTool
     @Override
     public String getInputSchema()
     {
-        return "{\"type\": \"object\", \"properties\": {}, \"required\": []}"; //$NON-NLS-1$
+        return JsonSchemaBuilder.object().build();
     }
     
     @Override

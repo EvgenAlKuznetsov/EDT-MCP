@@ -16,6 +16,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 
 import com.ditrix.edt.mcp.server.Activator;
+import com.ditrix.edt.mcp.server.protocol.JsonSchemaBuilder;
 import com.ditrix.edt.mcp.server.protocol.JsonUtils;
 import com.ditrix.edt.mcp.server.tools.IMcpTool;
 
@@ -29,9 +30,6 @@ public class GetTasksTool implements IMcpTool
     // Task marker types
     private static final String TASK_MARKER_TYPE = "org.eclipse.core.resources.taskmarker"; //$NON-NLS-1$
     private static final String XTEXT_TASK_MARKER_TYPE = "org.eclipse.xtext.ui.task"; //$NON-NLS-1$
-    
-    private static final int DEFAULT_LIMIT = 100;
-    private static final int MAX_LIMIT = 1000;
     
     @Override
     public String getName()
@@ -49,12 +47,12 @@ public class GetTasksTool implements IMcpTool
     @Override
     public String getInputSchema()
     {
-        return "{\"type\": \"object\", \"properties\": {" + //$NON-NLS-1$
-               "\"projectName\": {\"type\": \"string\", \"description\": \"Filter by project name (optional)\"}," + //$NON-NLS-1$
-               "\"filePath\": {\"type\": \"string\", \"description\": \"Filter by file path substring (optional)\"}," + //$NON-NLS-1$
-               "\"priority\": {\"type\": \"string\", \"description\": \"Filter by priority: high, normal, low (optional)\"}," + //$NON-NLS-1$
-               "\"limit\": {\"type\": \"integer\", \"description\": \"Maximum number of results (default: 100, max: 1000)\"}" + //$NON-NLS-1$
-               "}, \"required\": []}"; //$NON-NLS-1$
+        return JsonSchemaBuilder.object()
+            .stringProperty("projectName", "Filter by project name (optional)") //$NON-NLS-1$ //$NON-NLS-2$
+            .stringProperty("filePath", "Filter by file path substring (optional)") //$NON-NLS-1$ //$NON-NLS-2$
+            .stringProperty("priority", "Filter by priority: high, normal, low (optional)") //$NON-NLS-1$ //$NON-NLS-2$
+            .integerProperty("limit", "Maximum number of results (default: 100, max: 1000)") //$NON-NLS-1$ //$NON-NLS-2$
+            .build();
     }
     
     @Override
@@ -65,12 +63,15 @@ public class GetTasksTool implements IMcpTool
         String priority = JsonUtils.extractStringArgument(params, "priority"); //$NON-NLS-1$
         String limitStr = JsonUtils.extractStringArgument(params, "limit"); //$NON-NLS-1$
         
-        int limit = DEFAULT_LIMIT;
+        int defaultLimit = Activator.getDefault().getDefaultLimit();
+        int maxLimit = Activator.getDefault().getMaxLimit();
+        
+        int limit = defaultLimit;
         if (limitStr != null && !limitStr.isEmpty())
         {
             try
             {
-                limit = Math.min(Integer.parseInt(limitStr), MAX_LIMIT);
+                limit = Math.min(Integer.parseInt(limitStr), maxLimit);
             }
             catch (NumberFormatException e)
             {

@@ -3,11 +3,15 @@
  */
 package com.ditrix.edt.mcp.server.tools.impl;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.emf.common.util.EMap;
 import org.eclipse.swt.widgets.Display;
 
 import com._1c.g5.v8.dt.core.platform.IConfigurationProject;
@@ -17,7 +21,8 @@ import com._1c.g5.v8.dt.core.platform.IV8Project;
 import com._1c.g5.v8.dt.core.platform.IV8ProjectManager;
 import com._1c.g5.v8.dt.metadata.mdclass.Configuration;
 import com.ditrix.edt.mcp.server.Activator;
-import com.ditrix.edt.mcp.server.protocol.JsonUtils;
+import com.ditrix.edt.mcp.server.protocol.JsonSchemaBuilder;
+import com.ditrix.edt.mcp.server.protocol.ToolResult;
 import com.ditrix.edt.mcp.server.tools.IMcpTool;
 
 /**
@@ -42,9 +47,9 @@ public class GetConfigurationPropertiesTool implements IMcpTool
     @Override
     public String getInputSchema()
     {
-        return "{\"type\": \"object\", \"properties\": {" + //$NON-NLS-1$
-            "\"projectName\": {\"type\": \"string\", \"description\": \"Project name (optional, if not specified returns first configuration project)\"}" + //$NON-NLS-1$
-            "}, \"required\": []}"; //$NON-NLS-1$
+        return JsonSchemaBuilder.object()
+            .stringProperty("projectName", "Project name (optional, if not specified returns first configuration project)") //$NON-NLS-1$ //$NON-NLS-2$
+            .build();
     }
     
     @Override
@@ -99,8 +104,6 @@ public class GetConfigurationPropertiesTool implements IMcpTool
     private static String getConfigurationPropertiesInternal(String projectName)
     {
         Activator.logInfo("getConfigurationPropertiesInternal: Starting..."); //$NON-NLS-1$
-        StringBuilder json = new StringBuilder();
-        json.append("{"); //$NON-NLS-1$
         
         try
         {
@@ -110,8 +113,7 @@ public class GetConfigurationPropertiesTool implements IMcpTool
             if (dtProjectManager == null || v8ProjectManager == null)
             {
                 Activator.logInfo("getConfigurationProperties: Project managers not available"); //$NON-NLS-1$
-                json.append("\"error\": \"Project manager not available\"}"); //$NON-NLS-1$
-                return json.toString();
+                return ToolResult.error("Project manager not available").toJson(); //$NON-NLS-1$
             }
 
             IConfigurationProject configProject = null;
@@ -147,140 +149,127 @@ public class GetConfigurationPropertiesTool implements IMcpTool
             
             if (configProject == null)
             {
-                json.append("\"error\": \"No configuration project found"); //$NON-NLS-1$
+                String errorMsg = "No configuration project found"; //$NON-NLS-1$
                 if (projectName != null && !projectName.isEmpty())
                 {
-                    json.append(" with name: ").append(JsonUtils.escapeJson(projectName)); //$NON-NLS-1$
+                    errorMsg += " with name: " + projectName; //$NON-NLS-1$
                 }
-                json.append("\"}"); //$NON-NLS-1$
-                return json.toString();
+                return ToolResult.error(errorMsg).toJson();
             }
 
             // Get configuration object
             Configuration configuration = configProject.getConfiguration();
             if (configuration == null)
             {
-                json.append("\"error\": \"Configuration object not available\"}"); //$NON-NLS-1$
-                return json.toString();
+                return ToolResult.error("Configuration object not available").toJson(); //$NON-NLS-1$
             }
 
-            // General properties
-            json.append("\"name\": \"").append(JsonUtils.escapeJson(configuration.getName())).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
-            
-            // Synonym (localized map)
-            json.append("\"synonym\": "); //$NON-NLS-1$
-            JsonUtils.appendLocalizedStringMap(json, configuration.getSynonym());
-            json.append(","); //$NON-NLS-1$
-            
-            json.append("\"comment\": \"").append(JsonUtils.escapeJson(configuration.getComment())).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
+            // Build result using ToolResult
+            ToolResult result = ToolResult.success()
+                .put("name", configuration.getName()) //$NON-NLS-1$
+                .put("synonym", toLocalizedMap(configuration.getSynonym())) //$NON-NLS-1$
+                .put("comment", configuration.getComment()); //$NON-NLS-1$
             
             // Script variant
             if (configuration.getScriptVariant() != null)
             {
-                json.append("\"scriptVariant\": \"").append(configuration.getScriptVariant().toString()).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
+                result.put("scriptVariant", configuration.getScriptVariant().toString()); //$NON-NLS-1$
             }
             
             // Default run mode
             if (configuration.getDefaultRunMode() != null)
             {
-                json.append("\"defaultRunMode\": \"").append(configuration.getDefaultRunMode().toString()).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
+                result.put("defaultRunMode", configuration.getDefaultRunMode().toString()); //$NON-NLS-1$
             }
             
             // Data lock control mode
             if (configuration.getDataLockControlMode() != null)
             {
-                json.append("\"dataLockControlMode\": \"").append(configuration.getDataLockControlMode().toString()).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
+                result.put("dataLockControlMode", configuration.getDataLockControlMode().toString()); //$NON-NLS-1$
             }
             
             // Compatibility mode
             if (configuration.getCompatibilityMode() != null)
             {
-                json.append("\"compatibilityMode\": \"").append(configuration.getCompatibilityMode().toString()).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
+                result.put("compatibilityMode", configuration.getCompatibilityMode().toString()); //$NON-NLS-1$
             }
             
             // Modal use mode
             if (configuration.getModalityUseMode() != null)
             {
-                json.append("\"modalityUseMode\": \"").append(configuration.getModalityUseMode().toString()).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
+                result.put("modalityUseMode", configuration.getModalityUseMode().toString()); //$NON-NLS-1$
             }
             
             // Interface compatibility mode
             if (configuration.getInterfaceCompatibilityMode() != null)
             {
-                json.append("\"interfaceCompatibilityMode\": \"").append(configuration.getInterfaceCompatibilityMode().toString()).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
+                result.put("interfaceCompatibilityMode", configuration.getInterfaceCompatibilityMode().toString()); //$NON-NLS-1$
             }
             
             // Object autonumeration mode
             if (configuration.getObjectAutonumerationMode() != null)
             {
-                json.append("\"objectAutonumerationMode\": \"").append(configuration.getObjectAutonumerationMode().toString()).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
+                result.put("objectAutonumerationMode", configuration.getObjectAutonumerationMode().toString()); //$NON-NLS-1$
             }
             
             // Use purposes (array of purposes)
-            json.append("\"usePurposes\": ["); //$NON-NLS-1$
-            if (configuration.getUsePurposes() != null && !configuration.getUsePurposes().isEmpty())
+            List<String> usePurposes = new ArrayList<>();
+            if (configuration.getUsePurposes() != null)
             {
-                boolean first = true;
                 for (Object purpose : configuration.getUsePurposes())
                 {
-                    if (!first)
-                    {
-                        json.append(","); //$NON-NLS-1$
-                    }
-                    first = false;
-                    json.append("\"").append(JsonUtils.escapeJson(purpose.toString())).append("\""); //$NON-NLS-1$ //$NON-NLS-2$
+                    usePurposes.add(purpose.toString());
                 }
             }
-            json.append("],"); //$NON-NLS-1$
+            result.put("usePurposes", usePurposes); //$NON-NLS-1$
             
-            // Brief information
-            json.append("\"briefInformation\": "); //$NON-NLS-1$
-            JsonUtils.appendLocalizedStringMap(json, configuration.getBriefInformation());
-            json.append(","); //$NON-NLS-1$
-            
-            // Detailed information
-            json.append("\"detailedInformation\": "); //$NON-NLS-1$
-            JsonUtils.appendLocalizedStringMap(json, configuration.getDetailedInformation());
-            json.append(","); //$NON-NLS-1$
-            
-            // Vendor
-            json.append("\"vendor\": \"").append(JsonUtils.escapeJson(configuration.getVendor())).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
-            
-            // Version
-            json.append("\"version\": \"").append(JsonUtils.escapeJson(configuration.getVersion())).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
-            
-            // Copyright
-            json.append("\"copyright\": "); //$NON-NLS-1$
-            JsonUtils.appendLocalizedStringMap(json, configuration.getCopyright());
-            json.append(","); //$NON-NLS-1$
-            
-            // Vendor information address
-            json.append("\"vendorInformationAddress\": "); //$NON-NLS-1$
-            JsonUtils.appendLocalizedStringMap(json, configuration.getVendorInformationAddress());
-            json.append(","); //$NON-NLS-1$
-            
-            // Configuration information address
-            json.append("\"configurationInformationAddress\": "); //$NON-NLS-1$
-            JsonUtils.appendLocalizedStringMap(json, configuration.getConfigurationInformationAddress());
-            json.append(","); //$NON-NLS-1$
+            // Localized fields
+            result.put("briefInformation", toLocalizedMap(configuration.getBriefInformation())); //$NON-NLS-1$
+            result.put("detailedInformation", toLocalizedMap(configuration.getDetailedInformation())); //$NON-NLS-1$
+            result.put("vendor", configuration.getVendor()); //$NON-NLS-1$
+            result.put("version", configuration.getVersion()); //$NON-NLS-1$
+            result.put("copyright", toLocalizedMap(configuration.getCopyright())); //$NON-NLS-1$
+            result.put("vendorInformationAddress", toLocalizedMap(configuration.getVendorInformationAddress())); //$NON-NLS-1$
+            result.put("configurationInformationAddress", toLocalizedMap(configuration.getConfigurationInformationAddress())); //$NON-NLS-1$
             
             // Default language
             if (configuration.getDefaultLanguage() != null)
             {
-                json.append("\"defaultLanguage\": \"").append(JsonUtils.escapeJson(configuration.getDefaultLanguage().getName())).append("\","); //$NON-NLS-1$ //$NON-NLS-2$
+                result.put("defaultLanguage", configuration.getDefaultLanguage().getName()); //$NON-NLS-1$
             }
             
             // Project name
-            json.append("\"projectName\": \"").append(JsonUtils.escapeJson(configProject.getProject().getName())).append("\""); //$NON-NLS-1$ //$NON-NLS-2$
+            result.put("projectName", configProject.getProject().getName()); //$NON-NLS-1$
             
-            json.append("}"); //$NON-NLS-1$
+            return result.toJson();
         }
         catch (Exception e)
         {
             Activator.logError("Failed to get configuration properties", e); //$NON-NLS-1$
-            return "{\"error\": \"" + JsonUtils.escapeJson(e.getMessage()) + "\"}"; //$NON-NLS-1$ //$NON-NLS-2$
+            return ToolResult.error(e.getMessage()).toJson();
         }
-        
-        return json.toString();
+    }
+    
+    /**
+     * Converts EMap to regular Map for JSON serialization.
+     */
+    @SuppressWarnings("rawtypes")
+    private static Map<String, String> toLocalizedMap(EMap localizedString)
+    {
+        Map<String, String> map = new HashMap<>();
+        if (localizedString != null)
+        {
+            for (Object entry : localizedString)
+            {
+                if (entry instanceof Map.Entry)
+                {
+                    Map.Entry e = (Map.Entry) entry;
+                    String key = e.getKey() != null ? e.getKey().toString() : ""; //$NON-NLS-1$
+                    String value = e.getValue() != null ? e.getValue().toString() : ""; //$NON-NLS-1$
+                    map.put(key, value);
+                }
+            }
+        }
+        return map;
     }
 }

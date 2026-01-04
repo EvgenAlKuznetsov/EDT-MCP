@@ -19,12 +19,14 @@ import com.ditrix.edt.mcp.server.tools.McpToolRegistry;
 import com.ditrix.edt.mcp.server.tools.impl.GetBookmarksTool;
 import com.ditrix.edt.mcp.server.tools.impl.GetCheckDescriptionTool;
 import com.ditrix.edt.mcp.server.tools.impl.GetConfigurationPropertiesTool;
+import com.ditrix.edt.mcp.server.tools.impl.GetContentAssistTool;
 import com.ditrix.edt.mcp.server.tools.impl.GetEdtVersionTool;
 import com.ditrix.edt.mcp.server.tools.impl.GetProblemSummaryTool;
 import com.ditrix.edt.mcp.server.tools.impl.GetProjectErrorsTool;
 import com.ditrix.edt.mcp.server.tools.impl.GetTasksTool;
 import com.ditrix.edt.mcp.server.tools.impl.ListProjectsTool;
-import com.ditrix.edt.mcp.server.tools.impl.RevalidateProjectTool;
+import com.ditrix.edt.mcp.server.tools.impl.CleanProjectTool;
+import com.ditrix.edt.mcp.server.tools.impl.RevalidateObjectsTool;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -92,12 +94,14 @@ public class McpServer
         registry.register(new GetEdtVersionTool());
         registry.register(new ListProjectsTool());
         registry.register(new GetConfigurationPropertiesTool());
-        registry.register(new RevalidateProjectTool());
+        registry.register(new CleanProjectTool());
+        registry.register(new RevalidateObjectsTool());
         registry.register(new GetProblemSummaryTool());
         registry.register(new GetProjectErrorsTool());
         registry.register(new GetBookmarksTool());
         registry.register(new GetTasksTool());
         registry.register(new GetCheckDescriptionTool());
+        registry.register(new GetContentAssistTool());
         
         Activator.logInfo("Registered " + registry.getToolCount() + " MCP tools"); //$NON-NLS-1$ //$NON-NLS-2$
     }

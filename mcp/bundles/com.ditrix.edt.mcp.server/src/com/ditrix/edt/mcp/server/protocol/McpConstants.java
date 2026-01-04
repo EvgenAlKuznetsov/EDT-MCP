@@ -9,6 +9,9 @@ package com.ditrix.edt.mcp.server.protocol;
  */
 public final class McpConstants
 {
+    /** JSON-RPC version */
+    public static final String JSONRPC_VERSION = "2.0"; //$NON-NLS-1$
+    
     /** MCP protocol version - updated to 2025-11-25 */
     public static final String PROTOCOL_VERSION = "2025-11-25"; //$NON-NLS-1$
     
@@ -19,7 +22,7 @@ public final class McpConstants
     public static final String AUTHOR = "DitriX"; //$NON-NLS-1$
     
     /** Plugin version - synced with Bundle-Version in MANIFEST.MF */
-    public static final String PLUGIN_VERSION = "1.5.1"; //$NON-NLS-1$
+    public static final String PLUGIN_VERSION = "1.6.16"; //$NON-NLS-1$
     
     // JSON-RPC error codes
     /** Parse error */

@@ -10,7 +10,10 @@ import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 
 import com.ditrix.edt.mcp.server.Activator;
+import com.ditrix.edt.mcp.server.protocol.JsonSchemaBuilder;
 import com.ditrix.edt.mcp.server.tools.IMcpTool;
+import com.ditrix.edt.mcp.server.utils.ProjectStateChecker;
+import com.ditrix.edt.mcp.server.utils.ProjectStateChecker.ProjectStateResult;
 
 /**
  * Tool to list all workspace projects.
@@ -34,7 +37,7 @@ public class ListProjectsTool implements IMcpTool
     @Override
     public String getInputSchema()
     {
-        return "{\"type\": \"object\", \"properties\": {}, \"required\": []}"; //$NON-NLS-1$
+        return JsonSchemaBuilder.object().build();
     }
     
     @Override
@@ -66,15 +69,21 @@ public class ListProjectsTool implements IMcpTool
             }
             else
             {
-                // Table header
-                md.append("| Name | Path | Open | EDT Project | Natures |\n"); //$NON-NLS-1$
-                md.append("|------|------|------|-------------|--------|\n"); //$NON-NLS-1$
+                // Table header - added State column
+                md.append("| Name | State | Path | Open | EDT Project | Natures |\n"); //$NON-NLS-1$
+                md.append("|------|-------|------|------|-------------|--------|\n"); //$NON-NLS-1$
                 
                 for (IProject project : projects)
                 {
                     md.append("| "); //$NON-NLS-1$
                     md.append(escapeMarkdown(project.getName()));
                     md.append(" | "); //$NON-NLS-1$
+                    
+                    // Project state
+                    ProjectStateResult stateResult = ProjectStateChecker.checkProjectState(project);
+                    md.append(stateResult.getStateValue());
+                    md.append(" | "); //$NON-NLS-1$
+                    
                     md.append(escapeMarkdown(project.getLocation() != null ? 
                         project.getLocation().toOSString() : "")); //$NON-NLS-1$
                     md.append(" | "); //$NON-NLS-1$

@@ -9,10 +9,14 @@ import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
 import org.osgi.util.tracker.ServiceTracker;
 
+import com._1c.g5.v8.dt.core.platform.IBmModelManager;
 import com._1c.g5.v8.dt.core.platform.IConfigurationProvider;
+import com._1c.g5.v8.dt.core.platform.IDerivedDataManagerProvider;
 import com._1c.g5.v8.dt.core.platform.IDtProjectManager;
 import com._1c.g5.v8.dt.core.platform.IV8ProjectManager;
+import com._1c.g5.v8.dt.lifecycle.IServicesOrchestrator;
 import com._1c.g5.v8.dt.validation.marker.IMarkerManager;
+import com.e1c.g5.v8.dt.check.ICheckScheduler;
 
 /**
  * EDT MCP Server plugin activator.
@@ -34,6 +38,10 @@ public class Activator extends AbstractUIPlugin
     private ServiceTracker<IDtProjectManager, IDtProjectManager> dtProjectManagerTracker;
     private ServiceTracker<IConfigurationProvider, IConfigurationProvider> configurationProviderTracker;
     private ServiceTracker<IMarkerManager, IMarkerManager> markerManagerTracker;
+    private ServiceTracker<ICheckScheduler, ICheckScheduler> checkSchedulerTracker;
+    private ServiceTracker<IBmModelManager, IBmModelManager> bmModelManagerTracker;
+    private ServiceTracker<IDerivedDataManagerProvider, IDerivedDataManagerProvider> derivedDataManagerProviderTracker;
+    private ServiceTracker<IServicesOrchestrator, IServicesOrchestrator> servicesOrchestratorTracker;
 
     @Override
     public void start(BundleContext context) throws Exception
@@ -54,6 +62,18 @@ public class Activator extends AbstractUIPlugin
         
         markerManagerTracker = new ServiceTracker<>(context, IMarkerManager.class, null);
         markerManagerTracker.open();
+        
+        checkSchedulerTracker = new ServiceTracker<>(context, ICheckScheduler.class, null);
+        checkSchedulerTracker.open();
+        
+        bmModelManagerTracker = new ServiceTracker<>(context, IBmModelManager.class, null);
+        bmModelManagerTracker.open();
+        
+        derivedDataManagerProviderTracker = new ServiceTracker<>(context, IDerivedDataManagerProvider.class, null);
+        derivedDataManagerProviderTracker.open();
+        
+        servicesOrchestratorTracker = new ServiceTracker<>(context, IServicesOrchestrator.class, null);
+        servicesOrchestratorTracker.open();
         
         logInfo("EDT MCP Server plugin started"); //$NON-NLS-1$
     }
@@ -86,6 +106,26 @@ public class Activator extends AbstractUIPlugin
         {
             markerManagerTracker.close();
             markerManagerTracker = null;
+        }
+        if (checkSchedulerTracker != null)
+        {
+            checkSchedulerTracker.close();
+            checkSchedulerTracker = null;
+        }
+        if (bmModelManagerTracker != null)
+        {
+            bmModelManagerTracker.close();
+            bmModelManagerTracker = null;
+        }
+        if (derivedDataManagerProviderTracker != null)
+        {
+            derivedDataManagerProviderTracker.close();
+            derivedDataManagerProviderTracker = null;
+        }
+        if (servicesOrchestratorTracker != null)
+        {
+            servicesOrchestratorTracker.close();
+            servicesOrchestratorTracker = null;
         }
         
         logInfo("EDT MCP Server plugin stopped"); //$NON-NLS-1$
@@ -167,6 +207,86 @@ public class Activator extends AbstractUIPlugin
             return null;
         }
         return markerManagerTracker.getService();
+    }
+    
+    /**
+     * Returns the ICheckScheduler service for scheduling EDT validations.
+     * 
+     * @return check scheduler or null if not available
+     */
+    public ICheckScheduler getCheckScheduler()
+    {
+        if (checkSchedulerTracker == null)
+        {
+            return null;
+        }
+        return checkSchedulerTracker.getService();
+    }
+    
+    /**
+     * Returns the IBmModelManager service for BM model operations.
+     * 
+     * @return BM model manager or null if not available
+     */
+    public IBmModelManager getBmModelManager()
+    {
+        if (bmModelManagerTracker == null)
+        {
+            return null;
+        }
+        return bmModelManagerTracker.getService();
+    }
+    
+    /**
+     * Returns the IDerivedDataManagerProvider service for derived data operations.
+     * Used for waiting for validation and other derived data computations.
+     * 
+     * @return derived data manager provider or null if not available
+     */
+    public IDerivedDataManagerProvider getDerivedDataManagerProvider()
+    {
+        if (derivedDataManagerProviderTracker == null)
+        {
+            return null;
+        }
+        return derivedDataManagerProviderTracker.getService();
+    }
+    
+    /**
+     * Returns the IServicesOrchestrator service for lifecycle management.
+     * Used for waiting for project context lifecycle events.
+     * 
+     * @return services orchestrator or null if not available
+     */
+    public IServicesOrchestrator getServicesOrchestrator()
+    {
+        if (servicesOrchestratorTracker == null)
+        {
+            return null;
+        }
+        return servicesOrchestratorTracker.getService();
+    }
+
+    /**
+     * Returns the default result limit for tools from preferences.
+     * 
+     * @return default limit
+     */
+    public int getDefaultLimit()
+    {
+        return getPreferenceStore().getInt(
+            com.ditrix.edt.mcp.server.preferences.PreferenceConstants.PREF_DEFAULT_LIMIT);
+    }
+
+    /**
+     * Returns the maximum result limit for tools from preferences.
+     * 
+     * @return max limit
+     */
+    public int getMaxLimit()
+    {
+        return getPreferenceStore().getInt(
+            com.ditrix.edt.mcp.server.preferences.PreferenceConstants.PREF_MAX_LIMIT);
     }
 
     /**

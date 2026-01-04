@@ -17,12 +17,10 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
-import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
-import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.plugin.AbstractUIPlugin;
 
 import com.ditrix.edt.mcp.server.Activator;
 import com.ditrix.edt.mcp.server.McpServer;
@@ -39,6 +37,7 @@ public class McpServerPreferencePage extends FieldEditorPreferencePage implement
     private Button stopButton;
     private Button restartButton;
     private IntegerFieldEditor portEditor;
+    private DirectoryFieldEditor checksFolderEditor;
 
     public McpServerPreferencePage()
     {
@@ -74,12 +73,36 @@ public class McpServerPreferencePage extends FieldEditorPreferencePage implement
         addField(autoStartEditor);
         
         // Check descriptions folder
-        DirectoryFieldEditor checksFolderEditor = new DirectoryFieldEditor(
+        checksFolderEditor = new DirectoryFieldEditor(
             PreferenceConstants.PREF_CHECKS_FOLDER,
             "Check descriptions folder:",
             parent);
         checksFolderEditor.setEmptyStringAllowed(true);
         addField(checksFolderEditor);
+        
+        // Default limit for results
+        IntegerFieldEditor defaultLimitEditor = new IntegerFieldEditor(
+            PreferenceConstants.PREF_DEFAULT_LIMIT,
+            "Default result limit:",
+            parent);
+        defaultLimitEditor.setValidRange(1, 10000);
+        defaultLimitEditor.getLabelControl(parent).setToolTipText(
+            "Default number of results returned by get_project_errors, get_bookmarks, get_tasks tools");
+        defaultLimitEditor.getTextControl(parent).setToolTipText(
+            "Default number of results returned by get_project_errors, get_bookmarks, get_tasks tools");
+        addField(defaultLimitEditor);
+        
+        // Maximum limit for results
+        IntegerFieldEditor maxLimitEditor = new IntegerFieldEditor(
+            PreferenceConstants.PREF_MAX_LIMIT,
+            "Maximum result limit:",
+            parent);
+        maxLimitEditor.setValidRange(1, 100000);
+        maxLimitEditor.getLabelControl(parent).setToolTipText(
+            "Maximum number of results that can be requested. Prevents returning too much data.");
+        maxLimitEditor.getTextControl(parent).setToolTipText(
+            "Maximum number of results that can be requested. Prevents returning too much data.");
+        addField(maxLimitEditor);
 
         // Server control group
         createServerControlGroup(parent);
@@ -87,42 +110,50 @@ public class McpServerPreferencePage extends FieldEditorPreferencePage implement
 
     private void createServerControlGroup(Composite parent)
     {
-        Group controlGroup = new Group(parent, SWT.NONE);
-        controlGroup.setText("Server Control");
-        controlGroup.setLayout(new GridLayout(4, false));
-        GridData gd = new GridData(SWT.FILL, SWT.CENTER, true, false);
-        gd.horizontalSpan = 2;
-        controlGroup.setLayoutData(gd);
+        // Separator line before server control section
+        Label separator = new Label(parent, SWT.HORIZONTAL | SWT.SEPARATOR);
+        GridData separatorGd = new GridData(SWT.FILL, SWT.CENTER, true, false);
+        separatorGd.horizontalSpan = 2;
+        separatorGd.verticalIndent = 10;
+        separator.setLayoutData(separatorGd);
+        
+        // Server Control section title
+        Label sectionTitle = new Label(parent, SWT.NONE);
+        sectionTitle.setText("Server Control");
+        GridData titleGd = new GridData(SWT.LEFT, SWT.CENTER, false, false);
+        titleGd.horizontalSpan = 2;
+        sectionTitle.setLayoutData(titleGd);
+        
+        // Container for controls
+        Composite controlComposite = new Composite(parent, SWT.NONE);
+        controlComposite.setLayout(new GridLayout(4, false));
+        GridData compositeGd = new GridData(SWT.FILL, SWT.CENTER, true, false);
+        compositeGd.horizontalSpan = 2;
+        controlComposite.setLayoutData(compositeGd);
 
         // Status
-        Label statusTitleLabel = new Label(controlGroup, SWT.NONE);
+        Label statusTitleLabel = new Label(controlComposite, SWT.NONE);
         statusTitleLabel.setText("Status:");
         
-        statusLabel = new Label(controlGroup, SWT.NONE);
+        statusLabel = new Label(controlComposite, SWT.NONE);
         GridData statusGd = new GridData(SWT.FILL, SWT.CENTER, true, false);
         statusGd.horizontalSpan = 3;
         statusLabel.setLayoutData(statusGd);
         updateStatusLabel();
 
-        // Control buttons
-        ISharedImages sharedImages = PlatformUI.getWorkbench().getSharedImages();
+        // Control buttons - load custom PNG icons
+        ImageDescriptor startIcon = AbstractUIPlugin.imageDescriptorFromPlugin(
+            Activator.PLUGIN_ID, "icons/start.png");
+        ImageDescriptor stopIcon = AbstractUIPlugin.imageDescriptorFromPlugin(
+            Activator.PLUGIN_ID, "icons/stop.png");
+        ImageDescriptor restartIcon = AbstractUIPlugin.imageDescriptorFromPlugin(
+            Activator.PLUGIN_ID, "icons/restart.png");
         
-        startButton = new Button(controlGroup, SWT.PUSH);
+        startButton = new Button(controlComposite, SWT.PUSH);
         startButton.setText("Start");
-        // Use green "go" style icon
-        try
+        if (startIcon != null)
         {
-            ImageDescriptor runDesc = Activator.getDefault().getImageRegistry()
-                .getDescriptor("icons/run.png");
-            if (runDesc == null)
-            {
-                // Fallback to shared image
-                startButton.setImage(sharedImages.getImage(ISharedImages.IMG_ELCL_SYNCED));
-            }
-        }
-        catch (Exception e)
-        {
-            // Ignore
+            startButton.setImage(startIcon.createImage());
         }
         startButton.addSelectionListener(new SelectionAdapter()
         {
@@ -133,10 +164,12 @@ public class McpServerPreferencePage extends FieldEditorPreferencePage implement
             }
         });
 
-        stopButton = new Button(controlGroup, SWT.PUSH);
+        stopButton = new Button(controlComposite, SWT.PUSH);
         stopButton.setText("Stop");
-        // Use stop image
-        stopButton.setImage(sharedImages.getImage(ISharedImages.IMG_ELCL_STOP));
+        if (stopIcon != null)
+        {
+            stopButton.setImage(stopIcon.createImage());
+        }
         stopButton.addSelectionListener(new SelectionAdapter()
         {
             @Override
@@ -146,10 +179,12 @@ public class McpServerPreferencePage extends FieldEditorPreferencePage implement
             }
         });
 
-        restartButton = new Button(controlGroup, SWT.PUSH);
+        restartButton = new Button(controlComposite, SWT.PUSH);
         restartButton.setText("Restart");
-        // Use refresh image for restart
-        restartButton.setImage(sharedImages.getImage(ISharedImages.IMG_ELCL_SYNCED_DISABLED));
+        if (restartIcon != null)
+        {
+            restartButton.setImage(restartIcon.createImage());
+        }
         restartButton.addSelectionListener(new SelectionAdapter()
         {
             @Override
@@ -160,10 +195,10 @@ public class McpServerPreferencePage extends FieldEditorPreferencePage implement
         });
 
         // Empty placeholder for alignment
-        new Label(controlGroup, SWT.NONE);
+        new Label(controlComposite, SWT.NONE);
 
         // Connection info
-        Label infoLabel = new Label(controlGroup, SWT.NONE);
+        Label infoLabel = new Label(controlComposite, SWT.NONE);
         infoLabel.setText("Endpoint: http://localhost:<port>/mcp");
         GridData infoGd = new GridData(SWT.FILL, SWT.CENTER, true, false);
         infoGd.horizontalSpan = 4;
@@ -201,6 +236,9 @@ public class McpServerPreferencePage extends FieldEditorPreferencePage implement
     {
         try
         {
+            // Save current values from editors before starting
+            portEditor.store();
+            checksFolderEditor.store();
             int port = getPreferenceStore().getInt(PreferenceConstants.PREF_PORT);
             Activator.getDefault().getMcpServer().start(port);
             updateStatusLabel();
@@ -224,6 +262,9 @@ public class McpServerPreferencePage extends FieldEditorPreferencePage implement
     {
         try
         {
+            // Save current values from editors before restarting
+            portEditor.store();
+            checksFolderEditor.store();
             int port = getPreferenceStore().getInt(PreferenceConstants.PREF_PORT);
             Activator.getDefault().getMcpServer().restart(port);
             updateStatusLabel();
